@@ -1,0 +1,2690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADAPTIVE DUEL - 学習進化型 2D 対戦アクション</title>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --panel: #131a2b;
+      --panel-border: #253252;
+      --text: #e8eefc;
+      --muted: #8ea0c6;
+      --p1: #38bdf8;
+      --p2: #fb7185;
+      --accent: #facc15;
+      --good: #4ade80;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 15%, #172038 0%, #090d16 70%);
+      color: var(--text);
+      font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 16px 18px;
+      gap: 9px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1060px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .title-area {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: 0.08em;
+      background: linear-gradient(90deg, var(--p1), #a78bfa, var(--p2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    button, select {
+      background: #1e2942;
+      color: var(--text);
+      border: 1px solid #33456e;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+
+    button:hover, select:hover {
+      background: #283759;
+      border-color: #526da8;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    button.danger {
+      border-color: #7f1d1d;
+      background: #3b141c;
+      color: #fecaca;
+    }
+
+    button.danger:hover {
+      background: #581c28;
+      border-color: #ef4444;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-color: #38bdf8;
+      color: #fff;
+      font-size: 0.92rem;
+      padding: 9px 18px;
+    }
+
+    button.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .stage-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1060px;
+      aspect-ratio: 1000 / 560;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--panel-border);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+      background: #070b14;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 試合中覚醒バナー */
+    .awake-banner {
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: linear-gradient(90deg, rgba(251, 113, 133, 0.92), rgba(245, 158, 11, 0.92));
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 6px 18px;
+      border-radius: 999px;
+      border: 1px solid #fde047;
+      box-shadow: 0 6px 24px rgba(251, 113, 133, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 6;
+      white-space: nowrap;
+    }
+
+    .awake-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* オーバーレイ（タイトル・学習リザルト） */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 12, 22, 0.85);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 10;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 720px;
+      background: #111829;
+      border: 1px solid #304269;
+      border-radius: 12px;
+      padding: 18px 22px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    .modal h2 {
+      margin: 0 0 8px;
+      font-size: 1.32rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .modal p {
+      margin: 6px 0;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .report-box {
+      background: #0c1220;
+      border: 1px solid #243252;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .report-box h3 {
+      margin: 0 0 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .report-list {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .new-skill-badge {
+      display: inline-block;
+      background: rgba(250, 204, 21, 0.16);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      margin: 2px 4px 2px 0;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* 下部ダッシュボード */
+    .dashboard {
+      width: 100%;
+      max-width: 1060px;
+      display: grid;
+      grid-template-columns: 1.35fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 9px 12px;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 7px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .skill-chip {
+      background: #0b101d;
+      border: 1px solid #222e4a;
+      border-radius: 6px;
+      padding: 4px 5px;
+      font-size: 0.69rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skill-chip.unlocked {
+      border-color: rgba(251, 113, 133, 0.75);
+      background: rgba(251, 113, 133, 0.14);
+      color: #ffe4e6;
+      font-weight: 700;
+    }
+
+    .skill-chip.locked {
+      color: #64748b;
+    }
+
+    .skill-progress {
+      height: 3px;
+      background: #1e293b;
+      border-radius: 2px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+
+    .skill-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #f59e0b, #fb7185);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .habit-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      padding: 4px 0;
+      border-bottom: 1px dashed #1f2b47;
+      gap: 8px;
+    }
+
+    .habit-item:last-child {
+      border-bottom: none;
+    }
+
+    .habit-tag {
+      color: #f8fafc;
+    }
+
+    .habit-counter {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.73rem;
+      text-align: right;
+    }
+
+    .cpu-log {
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: #cbd5e1;
+      max-height: 86px;
+      overflow-y: auto;
+    }
+
+    .cpu-log div {
+      margin-bottom: 3px;
+    }
+
+    .controls-bar {
+      width: 100%;
+      max-width: 1060px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      align-items: center;
+      font-size: 0.76rem;
+      color: #cbd5e1;
+    }
+
+    kbd {
+      display: inline-block;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: Consolas, monospace;
+      font-size: 0.73rem;
+      color: #f8fafc;
+      margin: 0 2px;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+      .report-grid {
+        grid-template-columns: 1fr;
+      }
+      .skills-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title-area">
+      <h1>ADAPTIVE DUEL</h1>
+      <span class="subtitle">戦うほど技を覚え、あなたの癖を見抜く学習進化型 2D ストック対戦</span>
+    </div>
+    <div class="top-controls">
+      <span id="matchBadge" style="font-size:0.8rem;color:#93c5fd;font-weight:700;">MATCH 1 / CPU Lv.1</span>
+      <select id="stageSelect" title="ステージ選択">
+        <option value="battlefield">ステージ: 戦場 (3足場)</option>
+        <option value="small">ステージ: 小戦場 (2足場)</option>
+        <option value="final">ステージ: 終点 (足場なし)</option>
+      </select>
+      <select id="stockSelect" title="ストック数">
+        <option value="2">2ストック</option>
+        <option value="3">3ストック</option>
+      </select>
+      <button id="btnSound">🔊 SE: ON</button>
+      <button id="btnRestartMatch">↺ 試合やり直し</button>
+      <button id="btnResetCpu" class="danger">🧠 CPU記憶リセット</button>
+    </div>
+  </header>
+
+  <div class="stage-wrapper">
+    <canvas id="gameCanvas" width="1000" height="560"></canvas>
+    <div id="awakeBanner" class="awake-banner">⚡ CPU覚醒！</div>
+    <div id="overlay" class="overlay">
+      <div class="modal" id="modalContent"></div>
+    </div>
+  </div>
+
+  <div class="dashboard">
+    <div class="card">
+      <div class="card-title">
+        <span>CPU 習得スキル（連発で試合中にも即覚醒！）</span>
+        <span id="skillCountLabel" style="color:var(--p2);">1 / 10 習得</span>
+      </div>
+      <div class="skills-grid" id="skillsGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>CPUが分析したあなたの癖（直近重視）</span>
+        <span id="adaptRateLabel" style="color:var(--accent);">適応度 0%</span>
+      </div>
+      <div id="habitsList">
+        <div style="font-size:0.76rem;color:var(--muted);">対戦データ収集中…技を当てたり立ち回ると癖を学習します。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>CPU リアルタイム思考ログ</span>
+        <span id="cpuStateBadge" style="color:var(--good);">READY</span>
+      </div>
+      <div class="cpu-log" id="cpuLog"></div>
+    </div>
+  </div>
+
+  <div class="controls-bar">
+    <span><strong style="color:var(--p1);">1P操作:</strong></span>
+    <span><kbd>A</kbd><kbd>D</kbd> 移動</span>
+    <span><kbd>W</kbd> ジャンプ(2段)</span>
+    <span><kbd>S</kbd> ガード / 急降下 (<kbd>S</kbd>2回で足場降り)</span>
+    <span><kbd>Shift</kbd> 回避</span>
+    <span><kbd>J</kbd> 弱(3連)</span>
+    <span><kbd>K</kbd> 強スマッシュ</span>
+    <span><kbd>空中でS+K</kbd> メテオ</span>
+    <span><kbd>U</kbd> 飛び道具</span>
+    <span><kbd>I</kbd> 対空/復帰</span>
+    <span><kbd>O</kbd> 突進</span>
+    <span><kbd>H</kbd> 投げ</span>
+    <span><strong style="color:#fde047;">崖掴まり中:</strong> 内側(登り) / <kbd>W</kbd>(ジャンプ) / <kbd>J</kbd><kbd>K</kbd>(崖攻撃) / <kbd>Shift</kbd>(崖回避) / 外側(離す)</span>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const W = 1000;
+      const H = 560;
+
+      // ===== Web Audio API 効果音 =====
+      let soundEnabled = true;
+      let audioCtx = null;
+
+      function ensureAudio() {
+        if (!soundEnabled) return null;
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) audioCtx = new AC();
+        }
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+      }
+
+      function playTone(freq, endFreq, duration, type = "sine", gainVal = 0.12) {
+        const ac = ensureAudio();
+        if (!ac) return;
+        const now = ac.currentTime;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(30, endFreq), now + duration);
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      const SFX = {
+        hitLight: () => playTone(260, 95, 0.08, "triangle", 0.14),
+        hitHeavy: () => playTone(165, 40, 0.22, "sawtooth", 0.18),
+        meteor: () => {
+          playTone(220, 48, 0.24, "sawtooth", 0.22);
+          setTimeout(() => playTone(120, 35, 0.22, "square", 0.14), 45);
+        },
+        fatal: () => {
+          playTone(130, 32, 0.35, "sawtooth", 0.25);
+          playTone(540, 120, 0.26, "square", 0.14);
+        },
+        shoot: () => playTone(520, 200, 0.11, "square", 0.08),
+        jump: () => playTone(220, 440, 0.09, "sine", 0.07),
+        guard: () => playTone(680, 460, 0.07, "triangle", 0.1),
+        grab: () => playTone(320, 140, 0.12, "square", 0.11),
+        ledge: () => playTone(380, 520, 0.06, "sine", 0.07),
+        ko: () => {
+          playTone(190, 32, 0.45, "sawtooth", 0.24);
+          setTimeout(() => playTone(115, 28, 0.38, "triangle", 0.16), 70);
+        },
+        learn: () => {
+          playTone(440, 660, 0.12, "triangle", 0.12);
+          setTimeout(() => playTone(660, 920, 0.2, "triangle", 0.14), 100);
+        }
+      };
+
+      // ===== ステージ定義（3種類） =====
+      const STAGES = {
+        battlefield: {
+          name: "戦場",
+          main: { x: 190, y: 405, w: 620, h: 28, passThrough: false },
+          platforms: [
+            { x: 220, y: 295, w: 165, h: 12, passThrough: true },
+            { x: 615, y: 295, w: 165, h: 12, passThrough: true },
+            { x: 418, y: 205, w: 164, h: 12, passThrough: true }
+          ]
+        },
+        small: {
+          name: "小戦場",
+          main: { x: 180, y: 405, w: 640, h: 28, passThrough: false },
+          platforms: [
+            { x: 245, y: 285, w: 175, h: 12, passThrough: true },
+            { x: 580, y: 285, w: 175, h: 12, passThrough: true }
+          ]
+        },
+        final: {
+          name: "終点",
+          main: { x: 165, y: 405, w: 670, h: 28, passThrough: false },
+          platforms: []
+        }
+      };
+
+      const BLAST_ZONE = { left: -75, right: W + 75, top: -95, bottom: H + 75 };
+
+      function getCurrentStage() {
+        return STAGES[settings.stageId] || STAGES.battlefield;
+      }
+
+      function getStagePlatforms() {
+        const st = getCurrentStage();
+        return [st.main, ...st.platforms];
+      }
+
+      // ===== 技カタログ（CPUが習得できるスキル） =====
+      const CPU_SKILLS = [
+        { id: "weak", name: "弱攻撃", threshold: 0, realtimeThreshold: 0 },
+        { id: "guard", name: "ガード", threshold: 2.5, realtimeThreshold: 4.5 },
+        { id: "jump2", name: "2段ジャンプ", threshold: 3.0, realtimeThreshold: 5.5 },
+        { id: "projectile", name: "飛び道具", threshold: 3.0, realtimeThreshold: 5.0 },
+        { id: "strong", name: "強スマッシュ", threshold: 3.0, realtimeThreshold: 5.0 },
+        { id: "meteor", name: "メテオ", threshold: 2.0, realtimeThreshold: 3.5 },
+        { id: "antiAir", name: "対空/復帰", threshold: 2.5, realtimeThreshold: 4.5 },
+        { id: "rush", name: "突進技", threshold: 2.5, realtimeThreshold: 4.5 },
+        { id: "dodge", name: "回避", threshold: 2.5, realtimeThreshold: 4.5 },
+        { id: "grab", name: "投げ", threshold: 2.0, realtimeThreshold: 4.0 }
+      ];
+
+      const LEARNABLE_SKILLS = CPU_SKILLS.filter(s => s.id !== "weak");
+
+      // ===== 永続記憶 & 設定 =====
+      const STORAGE_KEY = "adaptive_duel_cpu_brain_v2";
+      const SETTINGS_KEY = "adaptive_duel_settings_v2";
+
+      let settings = (() => {
+        try {
+          const raw = localStorage.getItem(SETTINGS_KEY);
+          if (raw) return { stageId: "battlefield", stocks: 2, ...JSON.parse(raw) };
+        } catch {}
+        return { stageId: "battlefield", stocks: 2 };
+      })();
+
+      function saveSettings() {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch {}
+      }
+
+      function createInitialBrain() {
+        const observation = {};
+        for (const s of LEARNABLE_SKILLS) observation[s.id] = 0;
+        return {
+          matchCount: 1,
+          wins: 0,
+          losses: 0,
+          unlocked: ["weak"],
+          observation,
+          contextStats: {
+            far: { projectile: 0, rush: 0, approach: 0, jump: 0 },
+            mid: { projectile: 0, rush: 0, strong: 0, jump: 0, weak1: 0, guard: 0 },
+            near: { weak1: 0, strong: 0, guard: 0, grab: 0, dodge: 0, antiAir: 0 },
+            air: { attack: 0, meteor: 0, rush: 0, dodge: 0 },
+            ledge: { normal: 0, jump: 0, attack: 0, roll: 0 }
+          },
+          transitions: {},
+          totalSamples: 0
+        };
+      }
+
+      function loadBrain() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return createInitialBrain();
+          const parsed = JSON.parse(raw);
+          const base = createInitialBrain();
+          return {
+            ...base,
+            ...parsed,
+            observation: { ...base.observation, ...(parsed.observation || {}) },
+            contextStats: {
+              far: { ...base.contextStats.far, ...(parsed.contextStats?.far || {}) },
+              mid: { ...base.contextStats.mid, ...(parsed.contextStats?.mid || {}) },
+              near: { ...base.contextStats.near, ...(parsed.contextStats?.near || {}) },
+              air: { ...base.contextStats.air, ...(parsed.contextStats?.air || {}) },
+              ledge: { ...base.contextStats.ledge, ...(parsed.contextStats?.ledge || {}) }
+            },
+            transitions: parsed.transitions || {}
+          };
+        } catch {
+          return createInitialBrain();
+        }
+      }
+
+      function saveBrain() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(brain));
+        } catch {}
+      }
+
+      let brain = loadBrain();
+
+      // ===== 技定義 =====
+      const MOVE_DEFS = {
+        weak1: {
+          name: "弱1", damage: 4, baseKB: 120, kbGrowth: 140, angleDeg: -22,
+          startup: 0.06, active: 0.08, recovery: 0.13,
+          rangeX: 54, rangeY: 42, offsetX: 28, offsetY: -2,
+          hitstop: 0.04, shieldDamage: 6, chainTo: "weak2"
+        },
+        weak2: {
+          name: "弱2", damage: 5, baseKB: 145, kbGrowth: 165, angleDeg: -26,
+          startup: 0.05, active: 0.08, recovery: 0.14,
+          rangeX: 58, rangeY: 44, offsetX: 30, offsetY: -2,
+          hitstop: 0.045, shieldDamage: 8, chainTo: "weak3"
+        },
+        weak3: {
+          name: "弱3", damage: 8, baseKB: 255, kbGrowth: 310, angleDeg: -36,
+          startup: 0.07, active: 0.09, recovery: 0.24,
+          rangeX: 68, rangeY: 48, offsetX: 35, offsetY: -4,
+          hitstop: 0.075, shieldDamage: 12
+        },
+        strong: {
+          name: "強スマッシュ", damage: 17, baseKB: 325, kbGrowth: 550, angleDeg: -32,
+          startup: 0.20, active: 0.11, recovery: 0.34,
+          rangeX: 80, rangeY: 56, offsetX: 40, offsetY: -4,
+          hitstop: 0.12, shieldDamage: 28, isHeavy: true
+        },
+        meteor: {
+          name: "メテオスマッシュ", damage: 15, baseKB: 280, kbGrowth: 490, angleDeg: 82,
+          startup: 0.15, active: 0.11, recovery: 0.28,
+          rangeX: 60, rangeY: 54, offsetX: 16, offsetY: 24,
+          hitstop: 0.13, shieldDamage: 22, isMeteor: true, isHeavy: true
+        },
+        projectile: {
+          name: "飛び道具", damage: 8, baseKB: 165, kbGrowth: 210, angleDeg: -24,
+          startup: 0.14, active: 0.05, recovery: 0.23,
+          hitstop: 0.04, shieldDamage: 12
+        },
+        antiAir: {
+          name: "対空/復帰", damage: 12, baseKB: 270, kbGrowth: 410, angleDeg: -72,
+          startup: 0.08, active: 0.22, recovery: 0.27,
+          rangeX: 56, rangeY: 66, offsetX: 20, offsetY: -20,
+          hitstop: 0.085, shieldDamage: 16, isHeavy: true
+        },
+        rush: {
+          name: "突進技", damage: 13, baseKB: 275, kbGrowth: 400, angleDeg: -28,
+          startup: 0.12, active: 0.22, recovery: 0.29,
+          rangeX: 64, rangeY: 48, offsetX: 26, offsetY: 0,
+          hitstop: 0.09, shieldDamage: 15
+        },
+        grab: {
+          name: "投げ", damage: 11, baseKB: 295, kbGrowth: 365, angleDeg: -42,
+          startup: 0.07, active: 0.08, recovery: 0.27,
+          rangeX: 52, rangeY: 46, offsetX: 26, offsetY: 0,
+          hitstop: 0.09, isGrab: true
+        },
+        ledgeAttack: {
+          name: "崖攻撃", damage: 9, baseKB: 215, kbGrowth: 250, angleDeg: -34,
+          startup: 0.12, active: 0.12, recovery: 0.24,
+          rangeX: 72, rangeY: 46, offsetX: 34, offsetY: -2,
+          hitstop: 0.07, shieldDamage: 14
+        }
+      };
+
+      // ===== 入力管理 =====
+      const keysDown = new Set();
+      const keysJustPressed = new Set();
+      let lastSDownTime = 0;
+
+      const GAME_KEYS = new Set([
+        "KeyA", "KeyD", "KeyW", "KeyS",
+        "KeyJ", "KeyK", "KeyU", "KeyI", "KeyO", "KeyH",
+        "ShiftLeft", "ShiftRight",
+        "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"
+      ]);
+
+      window.addEventListener("keydown", (e) => {
+        if (GAME_KEYS.has(e.code)) e.preventDefault();
+        if (!keysDown.has(e.code)) {
+          keysJustPressed.add(e.code);
+          if (e.code === "KeyS" || e.code === "ArrowDown") {
+            const now = performance.now();
+            if (now - lastSDownTime < 260) keysJustPressed.add("DROP_THROUGH");
+            lastSDownTime = now;
+          }
+        }
+        keysDown.add(e.code);
+      });
+
+      window.addEventListener("keyup", (e) => keysDown.delete(e.code));
+      window.addEventListener("blur", () => {
+        keysDown.clear();
+        keysJustPressed.clear();
+      });
+
+      // ===== エフェクト & 演出管理 =====
+      let projectiles = [];
+      let particles = [];
+      let floatingTexts = [];
+      let koBeams = [];
+      let hitstopTimer = 0;
+      let screenShake = 0;
+      let fatalFlashTimer = 0;
+      let timeScale = 1;
+      let slowMoTimer = 0;
+      let attackIdCounter = 1;
+      let bannerTimer = 0;
+
+      const awakeBannerEl = document.getElementById("awakeBanner");
+
+      function showAwakeBanner(text) {
+        awakeBannerEl.textContent = text;
+        awakeBannerEl.classList.add("show");
+        bannerTimer = 2.6;
+      }
+
+      function spawnParticles(x, y, color, count = 12, speed = 220, size = 4) {
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const sp = speed * (0.35 + Math.random() * 0.75);
+          particles.push({
+            x, y,
+            vx: Math.cos(ang) * sp,
+            vy: Math.sin(ang) * sp,
+            life: 0.25 + Math.random() * 0.25,
+            maxLife: 0.5,
+            color,
+            size: size * (0.6 + Math.random() * 0.7)
+          });
+        }
+      }
+
+      function spawnKoBurst(x, y, color) {
+        const cx = Math.max(25, Math.min(W - 25, x));
+        const cy = Math.max(25, Math.min(H - 25, y));
+        const angleToCenter = Math.atan2(H / 2 - cy, W / 2 - cx);
+
+        koBeams.push({
+          x: cx,
+          y: cy,
+          angle: angleToCenter,
+          color,
+          life: 0.65,
+          maxLife: 0.65
+        });
+
+        spawnParticles(cx, cy, color, 48, 520, 7);
+        spawnParticles(cx, cy, "#ffffff", 26, 380, 5);
+        floatingTexts.push({
+          x: Math.max(80, Math.min(W - 80, cx)),
+          y: Math.max(70, Math.min(H - 70, cy)),
+          text: "GAME SET / K.O.!",
+          color: "#facc15",
+          life: 1.05,
+          vy: -40,
+          scale: 1.45
+        });
+      }
+
+      function addFloatText(x, y, text, color = "#ffffff", scale = 1) {
+        floatingTexts.push({ x, y, text, color, life: 0.85, vy: -38, scale });
+      }
+
+      // ===== ファイター生成 =====
+      function createFighter(isCpu) {
+        return {
+          isCpu,
+          color: isCpu ? "#fb7185" : "#38bdf8",
+          accent: isCpu ? "#fda4af" : "#7dd3fc",
+          x: isCpu ? 660 : 340,
+          y: 340,
+          vx: 0,
+          vy: 0,
+          w: 34,
+          h: 54,
+          facing: isCpu ? -1 : 1,
+          grounded: false,
+          onPassThrough: false,
+          dropThroughTimer: 0,
+          jumpsLeft: 2,
+          upSpecialAvailable: true,
+          damage: 0,
+          stocks: settings.stocks,
+          invulnTimer: 0,
+          respawnTimer: 0,
+          hitstunTimer: 0,
+          tumbleAngle: 0,
+          shieldHp: 100,
+          shieldBrokenTimer: 0,
+          shielding: false,
+          dodgeTimer: 0,
+          dodgeCooldown: 0,
+          projCooldown: 0,
+          attack: null,
+          ledgeState: null, // { side: "left"|"right", timer: 0 }
+          ledgeCooldown: 0,
+          flashTimer: 0,
+          bubbleText: "",
+          bubbleTimer: 0
+        };
+      }
+
+      function getCpuLevel() {
+        return Math.min(99, brain.matchCount + Math.floor((brain.unlocked.length - 1) / 2));
+      }
+
+      // ===== 試合状態 =====
+      let matchState = "intro"; // "intro" | "playing" | "roundOver"
+      let p1 = createFighter(false);
+      let p2 = createFighter(true);
+      let matchTimer = 0;
+
+      let sessionActionCounts = {};
+      let lastPlayerAction = null;
+      let lastPlayerActionTime = 0;
+
+      // ===== CPU 思考モジュール =====
+      const cpuLogs = [];
+      function pushCpuLog(msg) {
+        cpuLogs.unshift(`[Lv.${getCpuLevel()}] ${msg}`);
+        if (cpuLogs.length > 18) cpuLogs.pop();
+        renderCpuLog();
+      }
+
+      function setCpuBubble(text, dur = 1.6) {
+        p2.bubbleText = text;
+        p2.bubbleTimer = dur;
+      }
+
+      const cpuRuntime = {
+        thinkTimer: 0,
+        intentMove: 0,
+        wantJump: false,
+        wantDrop: false,
+        wantGuard: false,
+        guardHoldTimer: 0,
+        wantAction: null,
+        ledgeDecisionTimer: 0,
+        predictedNext: null,
+        predictTimer: 0
+      };
+
+      // 5戦前後で手強くなる成長カーブ（Match 5でフェアな人読み強敵到達）
+      function getCpuCapabilities() {
+        const m = brain.matchCount;
+        let thinkInterval = 0.46;
+        if (m === 2) thinkInterval = 0.33;
+        else if (m === 3) thinkInterval = 0.21;
+        else if (m === 4) thinkInterval = 0.14;
+        else if (m >= 5) thinkInterval = 0.095;
+
+        return {
+          lvl: getCpuLevel(),
+          unlocked: new Set(brain.unlocked),
+          thinkInterval,
+          aggression: Math.min(0.92, 0.25 + (m - 1) * 0.17),
+          adaptStrength: Math.min(1.0, (m - 1) * 0.25)
+        };
+      }
+
+      // ===== プレイヤー行動記録 & リアルタイム技覚醒 =====
+      function recordPlayerAction(actionName) {
+        if (matchState !== "playing") return;
+
+        sessionActionCounts[actionName] = (sessionActionCounts[actionName] || 0) + 1;
+
+        // 1. 技コピーの観測ゲージ増加＆試合中リアルタイム覚醒
+        const mapToSkill = {
+          guard: "guard",
+          jump2: "jump2",
+          projectile: "projectile",
+          strong: "strong",
+          meteor: "meteor",
+          antiAir: "antiAir",
+          rush: "rush",
+          dodge: "dodge",
+          grab: "grab"
+        };
+        const skillId = mapToSkill[actionName];
+        if (skillId && !brain.unlocked.includes(skillId)) {
+          const skillDef = CPU_SKILLS.find(s => s.id === skillId);
+          const inc = skillId === "jump2" ? 0.5 : 1;
+          brain.observation[skillId] = (brain.observation[skillId] || 0) + inc;
+
+          // 同じ技をこの試合中にたくさん使われたら、試合中でも即覚醒！
+          if (skillDef && (sessionActionCounts[actionName] || 0) >= skillDef.realtimeThreshold) {
+            brain.unlocked.push(skillId);
+            saveBrain();
+            SFX.learn();
+            showAwakeBanner(`⚡ CPU試合中覚醒：【${skillDef.name}】を今覚えた！`);
+            setCpuBubble(`${skillDef.name}…覚えたぞ！`, 2.2);
+            pushCpuLog(`連発を解析し、試合中に【${skillDef.name}】を即座に習得！`);
+            updateHeaderAndPanels();
+          } else {
+            renderSkillsGrid();
+          }
+        }
+
+        // 2. 状況別の行動傾向を記録
+        const dx = Math.abs(p1.x - p2.x);
+        const dy = p1.y - p2.y;
+        let context = "mid";
+        if (!p1.grounded && dy < -35) context = "air";
+        else if (dx > 270) context = "far";
+        else if (dx < 105) context = "near";
+
+        const bucket = brain.contextStats[context];
+        if (context === "far") {
+          if (actionName === "projectile") bucket.projectile++;
+          else if (actionName === "rush") bucket.rush++;
+          else if (actionName === "jump" || actionName === "jump2") bucket.jump++;
+          else if (actionName === "approach") bucket.approach++;
+        } else if (context === "mid") {
+          if (bucket[actionName] !== undefined) bucket[actionName]++;
+        } else if (context === "near") {
+          if (bucket[actionName] !== undefined) bucket[actionName]++;
+        } else if (context === "air") {
+          if (actionName === "meteor") bucket.meteor++;
+          else if (actionName === "weak1" || actionName === "strong") bucket.attack++;
+          else if (actionName === "rush") bucket.rush++;
+          else if (actionName === "dodge") bucket.dodge++;
+        }
+        brain.totalSamples++;
+
+        // 3. 2手コンボの遷移記録
+        const now = matchTimer;
+        if (lastPlayerAction && now - lastPlayerActionTime < 2.2 && actionName !== "approach") {
+          if (!brain.transitions[lastPlayerAction]) brain.transitions[lastPlayerAction] = {};
+          brain.transitions[lastPlayerAction][actionName] =
+            (brain.transitions[lastPlayerAction][actionName] || 0) + 1;
+
+          const caps = getCpuCapabilities();
+          if (caps.adaptStrength >= 0.25) {
+            const pred = getPredictedFollowUp(actionName);
+            if (pred && pred.prob >= 0.42 && pred.count >= 2) {
+              cpuRuntime.predictedNext = pred.next;
+              cpuRuntime.predictTimer = 0.85;
+            }
+          }
+        }
+        if (actionName !== "approach") {
+          lastPlayerAction = actionName;
+          lastPlayerActionTime = now;
+        }
+
+        if (brain.totalSamples % 4 === 0) renderHabits();
+      }
+
+      function recordLedgeChoice(choice) {
+        if (matchState !== "playing") return;
+        if (brain.contextStats.ledge[choice] !== undefined) {
+          brain.contextStats.ledge[choice]++;
+          brain.totalSamples++;
+        }
+      }
+
+      function getPredictedFollowUp(prevAction) {
+        const row = brain.transitions[prevAction];
+        if (!row) return null;
+        let total = 0;
+        let best = null;
+        let bestCount = 0;
+        for (const [k, v] of Object.entries(row)) {
+          total += v;
+          if (v > bestCount) {
+            bestCount = v;
+            best = k;
+          }
+        }
+        if (total < 2 || !best) return null;
+        return { next: best, prob: bestCount / total, count: bestCount };
+      }
+
+      function getContextBias(context, key) {
+        const row = brain.contextStats[context];
+        if (!row) return 0;
+        const total = Object.values(row).reduce((a, b) => a + b, 0);
+        if (total < 2.5) return 0;
+        return (row[key] || 0) / total;
+      }
+
+      // ===== CPU AI 思考 =====
+      function updateCpuAI(dt) {
+        const mainPlat = getCurrentStage().main;
+        if (p2.respawnTimer > 0 || p2.hitstunTimer > 0 || p2.shieldBrokenTimer > 0) {
+          cpuRuntime.intentMove = 0;
+          cpuRuntime.wantGuard = false;
+          return;
+        }
+
+        const caps = getCpuCapabilities();
+        const unlocked = caps.unlocked;
+
+        // CPUが崖に掴まっているときの行動選択
+        if (p2.ledgeState) {
+          cpuRuntime.ledgeDecisionTimer -= dt;
+          if (cpuRuntime.ledgeDecisionTimer <= 0) {
+            const side = p2.ledgeState.side;
+            const inDir = side === "left" ? 1 : -1;
+            const r = Math.random();
+            if (brain.matchCount <= 2) {
+              // 序盤は素直な通常登りのみ
+              cpuRuntime.intentMove = inDir;
+            } else if (r < 0.28) {
+              cpuRuntime.wantAction = "ledgeAttack";
+            } else if (r < 0.56) {
+              cpuRuntime.intentMove = inDir;
+              cpuRuntime.wantAction = "ledgeRoll";
+            } else if (r < 0.80) {
+              cpuRuntime.wantJump = true;
+              cpuRuntime.intentMove = inDir;
+            } else {
+              cpuRuntime.intentMove = inDir;
+            }
+          }
+          return;
+        }
+
+        if (cpuRuntime.predictTimer > 0) {
+          cpuRuntime.predictTimer -= dt;
+          if (cpuRuntime.predictTimer <= 0) cpuRuntime.predictedNext = null;
+        }
+        if (cpuRuntime.guardHoldTimer > 0) {
+          cpuRuntime.guardHoldTimer -= dt;
+          if (cpuRuntime.guardHoldTimer <= 0) cpuRuntime.wantGuard = false;
+        }
+
+        // === 場外復帰ロジック ===
+        const offStageLeft = p2.x < mainPlat.x + 8;
+        const offStageRight = p2.x > mainPlat.x + mainPlat.w - 8;
+
+        if (!p2.grounded && (offStageLeft || offStageRight || p2.y > mainPlat.y + 42)) {
+          const targetX = offStageLeft ? mainPlat.x + 25 : (offStageRight ? mainPlat.x + mainPlat.w - 25 : W / 2);
+          cpuRuntime.intentMove = p2.x < targetX ? 1 : -1;
+          cpuRuntime.wantGuard = false;
+
+          if (p2.vy > 75 && p2.y > mainPlat.y - 25) {
+            if (unlocked.has("jump2") && p2.jumpsLeft > 0) {
+              cpuRuntime.wantJump = true;
+            } else if (!unlocked.has("jump2") && p2.jumpsLeft > 1) {
+              cpuRuntime.wantJump = true;
+            } else if (unlocked.has("antiAir") && p2.upSpecialAvailable && p2.y > mainPlat.y - 5) {
+              cpuRuntime.wantAction = "antiAir";
+              setCpuBubble("復帰！", 0.9);
+            }
+          }
+          return;
+        }
+
+        cpuRuntime.thinkTimer -= dt;
+        if (cpuRuntime.thinkTimer > 0) return;
+        cpuRuntime.thinkTimer = caps.thinkInterval * (0.82 + Math.random() * 0.36);
+
+        const dx = p1.x - p2.x;
+        const absDx = Math.abs(dx);
+        const dy = p1.y - p2.y;
+        const dirToP1 = dx >= 0 ? 1 : -1;
+
+        cpuRuntime.wantJump = false;
+        cpuRuntime.wantDrop = false;
+        cpuRuntime.wantAction = null;
+
+        // 1戦目（Lv.1）の超弱い状態
+        if (brain.matchCount === 1 && unlocked.size <= 1) {
+          cpuRuntime.intentMove = Math.random() < 0.45 ? 0 : (absDx > 70 ? dirToP1 : 0);
+          if (absDx < 75 && Math.random() < 0.30) cpuRuntime.wantAction = "weak1";
+          else if (Math.random() < 0.08) cpuRuntime.wantJump = true;
+          return;
+        }
+
+        // === 崖狩り・復帰阻止（1Pが崖掴まり中または場外） ===
+        if (p1.ledgeState && caps.adaptStrength >= 0.25) {
+          const ledgeX = p1.ledgeState.side === "left" ? mainPlat.x + 30 : mainPlat.x + mainPlat.w - 30;
+          const distToLedge = ledgeX - p2.x;
+          const ledgeAttackBias = getContextBias("ledge", "attack");
+          const ledgeRollBias = getContextBias("ledge", "roll");
+
+          if (ledgeRollBias > 0.34) {
+            // 回避上がりの着地先で待機してスマッシュ
+            const rollTarget = p1.ledgeState.side === "left" ? mainPlat.x + 115 : mainPlat.x + mainPlat.w - 115;
+            cpuRuntime.intentMove = Math.abs(rollTarget - p2.x) > 16 ? Math.sign(rollTarget - p2.x) : 0;
+            if (Math.abs(rollTarget - p2.x) < 35 && unlocked.has("strong") && Math.random() < 0.55) {
+              cpuRuntime.wantAction = "strong";
+              setCpuBubble("回避上がり読み！", 1.1);
+            }
+            return;
+          }
+          if (Math.abs(distToLedge) > 30) {
+            cpuRuntime.intentMove = Math.sign(distToLedge);
+          } else if (ledgeAttackBias > 0.34 && unlocked.has("guard")) {
+            cpuRuntime.wantGuard = true;
+            cpuRuntime.guardHoldTimer = 0.35;
+            setCpuBubble("崖攻撃を待つ！", 1.0);
+          } else if (unlocked.has("strong") && Math.random() < 0.4) {
+            cpuRuntime.wantAction = "strong";
+          }
+          return;
+        }
+
+        // 1Pが場外に飛ばされていてCPUがメテオ習得済みなら、たまに空下メテオを狙う
+        const p1OffStage = p1.x < mainPlat.x - 10 || p1.x > mainPlat.x + mainPlat.w + 10;
+        if (p1OffStage && unlocked.has("meteor") && caps.adaptStrength >= 0.5 && p1.y > mainPlat.y - 80 && p1.y < mainPlat.y + 80) {
+          if (absDx < 95 && !p2.grounded && p2.y < p1.y - 10) {
+            cpuRuntime.wantAction = "meteor";
+            setCpuBubble("メテオ狙い！", 1.0);
+            return;
+          }
+        }
+
+        // 飛び道具接近の緊急対応
+        const incomingProj = projectiles.find(
+          pr => pr.owner === p1 && Math.abs(pr.x - p2.x) < 135 && Math.abs(pr.y - p2.y) < 50 && Math.sign(pr.vx) === Math.sign(p2.x - pr.x)
+        );
+        if (incomingProj && caps.adaptStrength > 0.15) {
+          const r = Math.random();
+          if (unlocked.has("dodge") && r < 0.4 * caps.adaptStrength) {
+            cpuRuntime.intentMove = dirToP1;
+            cpuRuntime.wantAction = "dodge";
+            setCpuBubble("弾を回避！", 1.0);
+            return;
+          } else if (r < 0.7 && p2.jumpsLeft > 0) {
+            cpuRuntime.wantJump = true;
+            cpuRuntime.intentMove = dirToP1;
+            return;
+          } else if (unlocked.has("guard")) {
+            cpuRuntime.wantGuard = true;
+            cpuRuntime.guardHoldTimer = 0.25;
+            return;
+          }
+        }
+
+        // 2手先読み対策
+        if (cpuRuntime.predictedNext && absDx < 185) {
+          const pred = cpuRuntime.predictedNext;
+          if ((pred === "weak1" || pred === "strong" || pred === "rush") && unlocked.has("guard")) {
+            cpuRuntime.wantGuard = true;
+            cpuRuntime.guardHoldTimer = 0.30;
+            setCpuBubble(`次の${MOVE_DEFS[pred]?.name || pred}を読んだ！`, 1.2);
+            pushCpuLog(`パターン先読み → ${MOVE_DEFS[pred]?.name || pred} にガード待機`);
+            cpuRuntime.predictedNext = null;
+            return;
+          }
+          if (pred === "guard" && unlocked.has("grab") && absDx < 85) {
+            cpuRuntime.intentMove = dirToP1;
+            cpuRuntime.wantAction = "grab";
+            setCpuBubble("ガード読みの投げ！", 1.2);
+            cpuRuntime.predictedNext = null;
+            return;
+          }
+        }
+
+        // プレイヤーの攻撃中に対応
+        const p1Attacking = p1.attack !== null && absDx < 105 && Math.abs(dy) < 62;
+        if (p1Attacking && p1.attack.type !== "projectile") {
+          const nearAtkBias = getContextBias("near", "weak1") + getContextBias("near", "strong");
+          const guardProb = Math.min(0.76, 0.26 + caps.adaptStrength * 0.32 + nearAtkBias * 0.22);
+          if (unlocked.has("guard") && Math.random() < guardProb) {
+            cpuRuntime.wantGuard = true;
+            cpuRuntime.guardHoldTimer = 0.26;
+            return;
+          }
+          if (unlocked.has("dodge") && Math.random() < 0.32 * caps.adaptStrength) {
+            cpuRuntime.intentMove = -dirToP1;
+            cpuRuntime.wantAction = "dodge";
+            return;
+          }
+        }
+
+        // プレイヤーがガード中なら投げ
+        if (p1.shielding && absDx < 85 && unlocked.has("grab")) {
+          const grabBias = getContextBias("near", "guard");
+          if (Math.random() < 0.55 + grabBias * 0.35) {
+            cpuRuntime.intentMove = dirToP1;
+            cpuRuntime.wantAction = "grab";
+            setCpuBubble("ガード崩し！", 1.0);
+            return;
+          }
+        }
+
+        // プレイヤーが上空にいる場合
+        if (dy < -55 && absDx < 95) {
+          const airBias = getContextBias("air", "attack") + getContextBias("air", "meteor");
+          if (unlocked.has("antiAir") && Math.random() < 0.42 + airBias * 0.38) {
+            cpuRuntime.intentMove = dirToP1;
+            cpuRuntime.wantAction = "antiAir";
+            if (airBias > 0.3) setCpuBubble("対空迎撃！", 1.0);
+            return;
+          }
+          if (p2.grounded && Math.random() < 0.45) {
+            cpuRuntime.wantJump = true;
+            cpuRuntime.intentMove = dirToP1;
+            return;
+          }
+        }
+
+        // メテオ（自分が上空・相手が真下付近）
+        if (!p2.grounded && dy > 22 && dy < 85 && absDx < 65 && unlocked.has("meteor") && Math.random() < 0.52) {
+          cpuRuntime.wantAction = "meteor";
+          return;
+        }
+
+        // 高台から降りる
+        if (dy > 70 && p2.onPassThrough && Math.random() < 0.6) {
+          cpuRuntime.wantDrop = true;
+          cpuRuntime.intentMove = dirToP1;
+          return;
+        }
+
+        // 距離別の通常立ち回り＋学習バイアス
+        if (absDx > 250) {
+          const farProjBias = getContextBias("far", "projectile");
+          cpuRuntime.intentMove = dirToP1;
+
+          if (farProjBias > 0.34 && caps.adaptStrength > 0.25) {
+            if (unlocked.has("rush") && Math.random() < 0.35) {
+              cpuRuntime.wantAction = "rush";
+              setCpuBubble("弾を突進で潰す！", 1.0);
+              return;
+            }
+            if (Math.random() < 0.42) {
+              cpuRuntime.wantJump = true;
+              return;
+            }
+          }
+
+          if (unlocked.has("projectile") && p2.projCooldown <= 0 && Math.random() < 0.38 * caps.aggression) {
+            cpuRuntime.wantAction = "projectile";
+          } else if (unlocked.has("rush") && Math.random() < 0.24 * caps.aggression) {
+            cpuRuntime.wantAction = "rush";
+          }
+        } else if (absDx > 85) {
+          cpuRuntime.intentMove = dirToP1;
+          if (dy < -40 && p2.grounded && Math.random() < 0.45) cpuRuntime.wantJump = true;
+          const r = Math.random();
+          if (unlocked.has("rush") && r < 0.28 * caps.aggression) cpuRuntime.wantAction = "rush";
+          else if (unlocked.has("projectile") && p2.projCooldown <= 0 && r < 0.48 * caps.aggression) cpuRuntime.wantAction = "projectile";
+          else if (unlocked.has("strong") && absDx < 115 && r < 0.65 * caps.aggression) cpuRuntime.wantAction = "strong";
+        } else {
+          cpuRuntime.intentMove = absDx > 44 ? dirToP1 : 0;
+          const nearGuardBias = getContextBias("near", "guard");
+          const r = Math.random();
+
+          if (p1.damage >= 80 && unlocked.has("strong") && r < 0.42) {
+            cpuRuntime.wantAction = "strong";
+            return;
+          }
+
+          if (unlocked.has("grab") && (nearGuardBias > 0.25 || p1.shielding) && r < 0.34 + nearGuardBias * 0.3) {
+            cpuRuntime.wantAction = "grab";
+          } else if (r < 0.48 * caps.aggression) {
+            cpuRuntime.wantAction = "weak1";
+          } else if (unlocked.has("strong") && r < 0.68 * caps.aggression) {
+            cpuRuntime.wantAction = "strong";
+          } else if (unlocked.has("antiAir") && r < 0.80 * caps.aggression) {
+            cpuRuntime.wantAction = "antiAir";
+          } else if (unlocked.has("dodge") && r < 0.90) {
+            cpuRuntime.intentMove = -dirToP1;
+            cpuRuntime.wantAction = "dodge";
+          }
+        }
+      }
+
+      // ===== 攻撃・行動処理 =====
+      function startAttack(fighter, moveKey) {
+        const def = MOVE_DEFS[moveKey];
+        if (!def) return;
+        fighter.shielding = false;
+        fighter.attack = {
+          id: attackIdCounter++,
+          type: moveKey,
+          timer: 0,
+          hitTargets: new Set(),
+          bufferedNext: null,
+          spawnedProj: false
+        };
+
+        if (moveKey === "antiAir") {
+          fighter.vy = -495;
+          fighter.vx = fighter.facing * 150;
+          fighter.grounded = false;
+        } else if (moveKey === "rush") {
+          fighter.vx = fighter.facing * 525;
+          fighter.vy = Math.min(fighter.vy, -35);
+        } else if (moveKey === "projectile") {
+          fighter.projCooldown = 0.55;
+        }
+      }
+
+      function performLedgeAction(f, choice, moveDir) {
+        const mainPlat = getCurrentStage().main;
+        const side = f.ledgeState.side;
+        const inDir = side === "left" ? 1 : -1;
+        f.facing = inDir;
+        f.ledgeState = null;
+        f.ledgeCooldown = 0.45;
+
+        if (!f.isCpu) recordLedgeChoice(choice);
+
+        if (choice === "drop") {
+          f.x += -inDir * 12;
+          f.y += 12;
+          f.vy = 110;
+          return;
+        }
+
+        // 崖上へ復帰
+        f.y = mainPlat.y - f.h / 2 - 2;
+        f.jumpsLeft = 2;
+        f.upSpecialAvailable = true;
+
+        if (choice === "jump") {
+          f.x = side === "left" ? mainPlat.x + 22 : mainPlat.x + mainPlat.w - 22;
+          f.vy = -490;
+          f.vx = inDir * 160;
+          f.invulnTimer = 0.22;
+          SFX.jump();
+        } else if (choice === "roll") {
+          f.x = side === "left" ? mainPlat.x + 28 : mainPlat.x + mainPlat.w - 28;
+          f.dodgeTimer = 0.26;
+          f.invulnTimer = 0.30;
+          f.vx = inDir * 440;
+          f.vy = 0;
+          SFX.jump();
+        } else if (choice === "attack") {
+          f.x = side === "left" ? mainPlat.x + 26 : mainPlat.x + mainPlat.w - 26;
+          f.invulnTimer = 0.24;
+          f.vx = inDir * 180;
+          f.grounded = true;
+          startAttack(f, "ledgeAttack");
+        } else {
+          // normal climb
+          f.x = side === "left" ? mainPlat.x + 26 : mainPlat.x + mainPlat.w - 26;
+          f.invulnTimer = 0.20;
+          f.vx = inDir * 90;
+          f.grounded = true;
+        }
+      }
+
+      function updateFighter(f, other, dt) {
+        if (f.flashTimer > 0) f.flashTimer -= dt;
+        if (f.invulnTimer > 0) f.invulnTimer -= dt;
+        if (f.dodgeCooldown > 0) f.dodgeCooldown -= dt;
+        if (f.projCooldown > 0) f.projCooldown -= dt;
+        if (f.dropThroughTimer > 0) f.dropThroughTimer -= dt;
+        if (f.ledgeCooldown > 0) f.ledgeCooldown -= dt;
+        if (f.bubbleTimer > 0) f.bubbleTimer -= dt;
+
+        // リスポーン待機
+        if (f.respawnTimer > 0) {
+          f.respawnTimer -= dt;
+          if (f.respawnTimer <= 0) {
+            f.x = f.isCpu ? 620 : 380;
+            f.y = 140;
+            f.vx = 0;
+            f.vy = 0;
+            f.damage = 0;
+            f.jumpsLeft = 2;
+            f.upSpecialAvailable = true;
+            f.invulnTimer = 1.6;
+            f.hitstunTimer = 0;
+            f.attack = null;
+            f.ledgeState = null;
+            f.shieldHp = 100;
+            f.shieldBrokenTimer = 0;
+            spawnParticles(f.x, f.y, f.color, 20, 170, 4);
+          }
+          return;
+        }
+
+        // 入力取得
+        let moveDir = 0;
+        let wantJump = false;
+        let wantDrop = false;
+        let wantGuard = false;
+        let wantDodge = false;
+        let wantAtk = null;
+
+        if (!f.isCpu) {
+          const left = keysDown.has("KeyA") || keysDown.has("ArrowLeft");
+          const right = keysDown.has("KeyD") || keysDown.has("ArrowRight");
+          moveDir = (right ? 1 : 0) - (left ? 1 : 0);
+          wantJump = keysJustPressed.has("KeyW") || keysJustPressed.has("ArrowUp");
+          wantDrop = keysJustPressed.has("DROP_THROUGH");
+          wantGuard = keysDown.has("KeyS") || keysDown.has("ArrowDown");
+          wantDodge = keysJustPressed.has("ShiftLeft") || keysJustPressed.has("ShiftRight");
+
+          if (keysJustPressed.has("KeyJ")) wantAtk = "weak1";
+          else if (keysJustPressed.has("KeyK")) {
+            wantAtk = (!f.grounded && wantGuard) ? "meteor" : "strong";
+          } else if (keysJustPressed.has("KeyU")) wantAtk = "projectile";
+          else if (keysJustPressed.has("KeyI")) wantAtk = "antiAir";
+          else if (keysJustPressed.has("KeyO")) wantAtk = "rush";
+          else if (keysJustPressed.has("KeyH")) wantAtk = "grab";
+        } else {
+          moveDir = cpuRuntime.intentMove;
+          wantJump = cpuRuntime.wantJump;
+          wantDrop = cpuRuntime.wantDrop;
+          wantGuard = cpuRuntime.wantGuard;
+          if (cpuRuntime.wantAction === "dodge") wantDodge = true;
+          else wantAtk = cpuRuntime.wantAction;
+          cpuRuntime.wantJump = false;
+          cpuRuntime.wantDrop = false;
+          cpuRuntime.wantAction = null;
+        }
+
+        // 崖掴まり中の分岐処理
+        if (f.ledgeState) {
+          f.ledgeState.timer += dt;
+          f.vx = 0;
+          f.vy = 0;
+          const side = f.ledgeState.side;
+          const inDir = side === "left" ? 1 : -1;
+
+          if (!f.isCpu) {
+            if (wantJump) return performLedgeAction(f, "jump", moveDir);
+            if (wantAtk === "weak1" || wantAtk === "strong" || wantAtk === "meteor") return performLedgeAction(f, "attack", moveDir);
+            if (wantDodge) return performLedgeAction(f, "roll", moveDir);
+            if (f.ledgeState.timer > 0.14) {
+              if (moveDir === inDir) return performLedgeAction(f, "normal", moveDir);
+              if (moveDir === -inDir || keysJustPressed.has("KeyS") || keysJustPressed.has("ArrowDown")) {
+                return performLedgeAction(f, "drop", moveDir);
+              }
+            }
+          } else {
+            if (wantJump) return performLedgeAction(f, "jump", moveDir);
+            if (wantAtk === "ledgeAttack") return performLedgeAction(f, "attack", moveDir);
+            if (wantAtk === "ledgeRoll") return performLedgeAction(f, "roll", moveDir);
+            if (moveDir === inDir && f.ledgeState.timer > 0.25) return performLedgeAction(f, "normal", moveDir);
+          }
+
+          if (f.ledgeState && f.ledgeState.timer >= 2.2) {
+            performLedgeAction(f, "normal", inDir);
+          }
+          return;
+        }
+
+        // シールドブレイク硬直
+        if (f.shieldBrokenTimer > 0) {
+          f.shieldBrokenTimer -= dt;
+          f.shielding = false;
+          if (Math.random() < 0.25) spawnParticles(f.x, f.y - 34, "#facc15", 1, 70, 3);
+          applyPhysics(f, dt);
+          return;
+        }
+
+        // 吹き飛び硬直中
+        if (f.hitstunTimer > 0) {
+          f.hitstunTimer -= dt;
+          f.shielding = false;
+          f.attack = null;
+          f.tumbleAngle += (f.vx >= 0 ? 1 : -1) * 14 * dt;
+          f.vx += moveDir * 195 * dt;
+          if (Math.random() < 0.55) {
+            spawnParticles(f.x, f.y, f.damage > 85 ? "#cbd5e1" : "#94a3b8", 1, 35, f.damage > 85 ? 5 : 3);
+          }
+          applyPhysics(f, dt);
+          return;
+        }
+        f.tumbleAngle = 0;
+
+        // 回避ステップ中
+        if (f.dodgeTimer > 0) {
+          f.dodgeTimer -= dt;
+          f.shielding = false;
+          if (Math.random() < 0.55) spawnParticles(f.x, f.y, f.color, 1, 40, 4);
+          applyPhysics(f, dt);
+          return;
+        }
+
+        // 攻撃中の処理
+        if (f.attack) {
+          const atk = f.attack;
+          const def = MOVE_DEFS[atk.type];
+          atk.timer += dt;
+
+          if (def.chainTo && wantAtk === "weak1") atk.bufferedNext = def.chainTo;
+
+          if (atk.type === "projectile" && !atk.spawnedProj && atk.timer >= def.startup) {
+            atk.spawnedProj = true;
+            projectiles.push({
+              owner: f,
+              x: f.x + f.facing * 28,
+              y: f.y - 4,
+              vx: f.facing * 560,
+              vy: 0,
+              r: 10,
+              life: 1.45,
+              color: f.color,
+              def
+            });
+            SFX.shoot();
+            spawnParticles(f.x + f.facing * 26, f.y - 4, f.color, 6, 120, 3);
+          }
+
+          if (atk.type === "rush") {
+            if (atk.timer < def.startup + def.active) {
+              f.vx = f.facing * 495;
+              f.vy = Math.min(f.vy, 20);
+            } else {
+              f.vx *= 0.85;
+            }
+          }
+
+          if (
+            atk.type !== "projectile" &&
+            atk.timer >= def.startup &&
+            atk.timer <= def.startup + def.active &&
+            !atk.hitTargets.has(other)
+          ) {
+            const hbX = f.x + f.facing * def.offsetX - def.rangeX / 2;
+            const hbY = f.y + def.offsetY - def.rangeY / 2;
+            const oLeft = other.x - other.w / 2;
+            const oRight = other.x + other.w / 2;
+            const oTop = other.y - other.h / 2;
+            const oBottom = other.y + other.h / 2;
+
+            if (hbX < oRight && hbX + def.rangeX > oLeft && hbY < oBottom && hbY + def.rangeY > oTop && other.respawnTimer <= 0) {
+              applyHit(f, other, def, atk);
+            }
+          }
+
+          const totalDur = def.startup + def.active + def.recovery;
+          if (atk.bufferedNext && atk.timer >= def.startup + def.active + 0.04) {
+            startAttack(f, atk.bufferedNext);
+          } else if (atk.timer >= totalDur) {
+            f.attack = null;
+          }
+
+          if (!f.grounded && atk.type !== "rush") {
+            f.vx += moveDir * 520 * dt;
+            f.vx = Math.max(-280, Math.min(280, f.vx));
+          } else if (f.grounded && atk.type !== "rush") {
+            f.vx *= 0.78;
+          }
+
+          applyPhysics(f, dt);
+          return;
+        }
+
+        // ===== 通常時の移動・ガード・技 =====
+        if (wantGuard && f.grounded && f.shieldHp > 2) {
+          if (!f.shielding && !f.isCpu) recordPlayerAction("guard");
+          f.shielding = true;
+          f.shieldHp = Math.max(0, f.shieldHp - 18 * dt);
+          f.vx *= 0.72;
+          if (f.shieldHp <= 0) {
+            f.shieldBrokenTimer = 2.0;
+            f.shielding = false;
+            addFloatText(f.x, f.y - 40, "SHIELD BREAK!", "#facc15", 1.2);
+            SFX.hitHeavy();
+          }
+          if (wantDodge && f.dodgeCooldown <= 0) {
+            triggerDodge(f, moveDir);
+            return;
+          }
+          if (wantAtk === "grab") {
+            if (!f.isCpu) recordPlayerAction("grab");
+            startAttack(f, "grab");
+            return;
+          }
+        } else {
+          f.shielding = false;
+          f.shieldHp = Math.min(100, f.shieldHp + 14 * dt);
+        }
+
+        if (wantDrop && f.grounded && f.onPassThrough) {
+          f.dropThroughTimer = 0.22;
+          f.grounded = false;
+          f.y += 4;
+          f.vy = 140;
+        }
+
+        if (!f.grounded && wantGuard && wantAtk !== "meteor" && f.vy > -40) {
+          f.vy = Math.max(f.vy, 540);
+        }
+
+        if (wantDodge && f.dodgeCooldown <= 0) {
+          if (!f.isCpu) recordPlayerAction("dodge");
+          triggerDodge(f, moveDir);
+          return;
+        }
+
+        if (wantAtk && !f.shielding) {
+          if (wantAtk === "projectile" && f.projCooldown > 0) {
+            // cooldown
+          } else if (wantAtk === "antiAir" && !f.grounded && !f.upSpecialAvailable) {
+            // already used upB
+          } else {
+            if (moveDir !== 0) f.facing = moveDir;
+            if (!f.isCpu) recordPlayerAction(wantAtk);
+            if (wantAtk === "antiAir" && !f.grounded) f.upSpecialAvailable = false;
+            startAttack(f, wantAtk);
+            return;
+          }
+        }
+
+        if (!f.shielding) {
+          const maxSpeed = 305;
+          const accel = f.grounded ? 2200 : 1250;
+          if (moveDir !== 0) {
+            f.facing = moveDir;
+            f.vx += moveDir * accel * dt;
+            if (Math.abs(f.vx) > maxSpeed) f.vx = moveDir * maxSpeed;
+            if (!f.isCpu && Math.random() < 0.04) recordPlayerAction("approach");
+          } else {
+            const friction = f.grounded ? 1900 : 420;
+            if (Math.abs(f.vx) <= friction * dt) f.vx = 0;
+            else f.vx -= Math.sign(f.vx) * friction * dt;
+          }
+        }
+
+        if (wantJump && f.jumpsLeft > 0) {
+          const isSecond = !f.grounded;
+          if (isSecond && f.isCpu && !brain.unlocked.includes("jump2")) {
+            // locked
+          } else {
+            f.vy = isSecond ? -470 : -515;
+            f.grounded = false;
+            f.jumpsLeft--;
+            f.shielding = false;
+            SFX.jump();
+            spawnParticles(f.x, f.y + f.h / 2, isSecond ? "#e2e8f0" : f.color, 7, 110, 3);
+            if (!f.isCpu) recordPlayerAction(isSecond ? "jump2" : "jump");
+          }
+        }
+
+        applyPhysics(f, dt);
+      }
+
+      function triggerDodge(f, moveDir) {
+        const dir = moveDir !== 0 ? moveDir : f.facing;
+        f.facing = dir;
+        f.dodgeTimer = 0.22;
+        f.invulnTimer = 0.24;
+        f.dodgeCooldown = 0.55;
+        f.shielding = false;
+        f.vx = dir * 460;
+        f.vy = Math.min(f.vy, 0);
+        SFX.jump();
+      }
+
+      function applyPhysics(f, dt) {
+        const GRAVITY = 1320;
+        const MAX_FALL = 740;
+        const prevBottom = f.y + f.h / 2;
+        const platforms = getStagePlatforms();
+        const mainPlat = getCurrentStage().main;
+
+        f.vy = Math.min(MAX_FALL, f.vy + GRAVITY * dt);
+        f.x += f.vx * dt;
+        f.y += f.vy * dt;
+
+        f.grounded = false;
+        f.onPassThrough = false;
+
+        // 足場との着地判定＆メテオの地上バウンド
+        if (f.vy >= 0) {
+          const currBottom = f.y + f.h / 2;
+          const halfW = f.w * 0.42;
+          for (const plat of platforms) {
+            if (plat.passThrough && f.dropThroughTimer > 0) continue;
+            const withinX = f.x + halfW > plat.x && f.x - halfW < plat.x + plat.w;
+            if (withinX && prevBottom <= plat.y + 8 && currBottom >= plat.y) {
+              // 吹っ飛び中にメテオ等で強く地面に叩きつけられたらバウンド！
+              if (f.hitstunTimer > 0 && f.vy > 340) {
+                f.y = plat.y - f.h / 2;
+                f.vy = -f.vy * 0.62;
+                f.vx *= 0.85;
+                spawnParticles(f.x, plat.y, "#facc15", 12, 180, 4);
+                SFX.hitHeavy();
+                break;
+              }
+              f.y = plat.y - f.h / 2;
+              f.vy = 0;
+              f.grounded = true;
+              f.onPassThrough = plat.passThrough;
+              f.jumpsLeft = 2;
+              f.upSpecialAvailable = true;
+              break;
+            }
+          }
+        }
+
+        // 崖掴まり判定
+        if (!f.grounded && f.vy > -60 && f.ledgeCooldown <= 0 && f.hitstunTimer <= 0 && !f.ledgeState) {
+          const leftLedgeX = mainPlat.x;
+          const rightLedgeX = mainPlat.x + mainPlat.w;
+          const ledgeY = mainPlat.y + 10;
+
+          if (Math.abs(f.x - leftLedgeX) < 26 && Math.abs(f.y - ledgeY) < 32 && f.x <= leftLedgeX + 8) {
+            f.x = leftLedgeX - 10;
+            f.y = ledgeY + 12;
+            f.facing = 1;
+            f.ledgeState = { side: "left", timer: 0 };
+            f.attack = null;
+            f.invulnTimer = 0.45;
+            f.jumpsLeft = 2;
+            f.upSpecialAvailable = true;
+            cpuRuntime.ledgeDecisionTimer = 0.25 + Math.random() * 0.2;
+            SFX.ledge();
+          } else if (Math.abs(f.x - rightLedgeX) < 26 && Math.abs(f.y - ledgeY) < 32 && f.x >= rightLedgeX - 8) {
+            f.x = rightLedgeX + 10;
+            f.y = ledgeY + 12;
+            f.facing = -1;
+            f.ledgeState = { side: "right", timer: 0 };
+            f.attack = null;
+            f.invulnTimer = 0.45;
+            f.jumpsLeft = 2;
+            f.upSpecialAvailable = true;
+            cpuRuntime.ledgeDecisionTimer = 0.25 + Math.random() * 0.2;
+            SFX.ledge();
+          }
+        }
+
+        if (f.x < BLAST_ZONE.left || f.x > BLAST_ZONE.right || f.y < BLAST_ZONE.top || f.y > BLAST_ZONE.bottom) {
+          onFighterKO(f);
+        }
+      }
+
+      // ===== ヒット＆吹っ飛び＆致命閃光演出 =====
+      function applyHit(attacker, defender, def, atk, overrideDir = null) {
+        if (defender.invulnTimer > 0) return;
+        const dir = overrideDir || attacker.facing;
+
+        if (defender.shielding && !def.isGrab) {
+          atk.hitTargets.add(defender);
+          defender.shieldHp = Math.max(0, defender.shieldHp - (def.shieldDamage || 10));
+          defender.vx = dir * 120;
+          hitstopTimer = 0.04;
+          SFX.guard();
+          spawnParticles((attacker.x + defender.x) / 2, defender.y, "#93c5fd", 8, 150, 3);
+          addFloatText(defender.x, defender.y - 36, "GUARD", "#93c5fd", 0.85);
+
+          if (defender.shieldHp <= 0) {
+            defender.shieldBrokenTimer = 2.0;
+            defender.shielding = false;
+            addFloatText(defender.x, defender.y - 52, "SHIELD BREAK!", "#facc15", 1.2);
+            SFX.hitHeavy();
+          }
+          return;
+        }
+
+        atk.hitTargets.add(defender);
+        defender.damage = Math.min(999, defender.damage + def.damage);
+        defender.flashTimer = 0.16;
+        defender.attack = null;
+        defender.ledgeState = null;
+        defender.shielding = false;
+        defender.upSpecialAvailable = true;
+
+        const dmgScale = 0.35 + (defender.damage / 100) * 1.18;
+        const kbPower = def.baseKB + def.kbGrowth * dmgScale;
+        const rad = (def.angleDeg * Math.PI) / 180;
+
+        defender.vx = Math.cos(rad) * kbPower * dir;
+        defender.vy = Math.sin(rad) * kbPower;
+        defender.grounded = false;
+        defender.hitstunTimer = Math.min(0.9, 0.14 + kbPower / 1120);
+
+        const mainPlat = getCurrentStage().main;
+        const offStage = defender.x < mainPlat.x || defender.x > mainPlat.x + mainPlat.w;
+        const isFatalBlast = (def.isHeavy && kbPower >= 760) || (def.isMeteor && defender.damage >= 55 && offStage);
+
+        if (isFatalBlast) {
+          fatalFlashTimer = 0.24;
+          hitstopTimer = 0.16;
+          slowMoTimer = 0.32;
+          timeScale = 0.35;
+          screenShake = 16;
+          SFX.fatal();
+          addFloatText(defender.x, defender.y - 52, def.isMeteor ? "METEOR SMASH!!" : "CRITICAL HIT!", "#ef4444", 1.35);
+        } else {
+          hitstopTimer = def.hitstop || 0.06;
+          screenShake = Math.min(13, 3 + kbPower / 90);
+          if (def.isMeteor) SFX.meteor();
+          else if (def.damage >= 12 || defender.damage >= 90) SFX.hitHeavy();
+          else SFX.hitLight();
+        }
+
+        const hitX = (attacker.x + defender.x) / 2;
+        const hitY = (attacker.y + defender.y) / 2;
+        spawnParticles(hitX, hitY, def.isMeteor ? "#f97316" : def.isGrab ? "#facc15" : "#ffffff", 16, 280, 4);
+        spawnParticles(hitX, hitY, attacker.color, 10, 210, 4);
+        addFloatText(
+          defender.x,
+          defender.y - 38,
+          def.isGrab ? `THROW! +${def.damage}%` : def.isMeteor ? `METEOR! +${def.damage}%` : `+${def.damage}%`,
+          def.damage >= 12 ? "#facc15" : "#f8fafc",
+          def.damage >= 12 ? 1.15 : 0.95
+        );
+      }
+
+      // ===== 撃墜＆試合終了・忘却減衰付き学習 =====
+      function onFighterKO(loser) {
+        SFX.ko();
+        screenShake = 18;
+        hitstopTimer = 0.12;
+        spawnKoBurst(loser.x, loser.y, loser.color);
+
+        loser.stocks--;
+        if (loser.stocks <= 0) {
+          loser.respawnTimer = 999;
+          finishMatch(loser.isCpu ? p1 : p2);
+        } else {
+          loser.respawnTimer = 0.95;
+        }
+      }
+
+      function decayMemory(factor = 0.76) {
+        for (const ctxBucket of Object.values(brain.contextStats)) {
+          for (const k of Object.keys(ctxBucket)) {
+            ctxBucket[k] = Number((ctxBucket[k] * factor).toFixed(2));
+          }
+        }
+        for (const row of Object.values(brain.transitions)) {
+          for (const k of Object.keys(row)) {
+            row[k] = Number((row[k] * factor).toFixed(2));
+          }
+        }
+      }
+
+      function finishMatch(winner) {
+        matchState = "roundOver";
+        const playerWon = winner === p1;
+        if (playerWon) brain.losses++;
+        else brain.wins++;
+
+        const newlyLearned = [];
+        for (const skill of LEARNABLE_SKILLS) {
+          if (brain.unlocked.includes(skill.id)) continue;
+          const obs = brain.observation[skill.id] || 0;
+          const autoUnlock =
+            (brain.matchCount >= 1 && skill.id === "guard" && obs >= 1) ||
+            (brain.matchCount >= 2 && (skill.id === "guard" || skill.id === "jump2")) ||
+            (brain.matchCount >= 3 && skill.id === "antiAir");
+
+          if (obs >= skill.threshold || autoUnlock) {
+            brain.unlocked.push(skill.id);
+            newlyLearned.push(skill);
+          }
+        }
+
+        if (newlyLearned.length === 0 && brain.unlocked.length < CPU_SKILLS.length) {
+          let bestSkill = null;
+          let bestVal = -1;
+          for (const skill of LEARNABLE_SKILLS) {
+            if (!brain.unlocked.includes(skill.id)) {
+              const v = brain.observation[skill.id] || 0;
+              if (v > bestVal) {
+                bestVal = v;
+                bestSkill = skill;
+              }
+            }
+          }
+          if (bestSkill && (bestVal > 0 || brain.matchCount <= 4)) {
+            brain.unlocked.push(bestSkill.id);
+            newlyLearned.push(bestSkill);
+          }
+        }
+
+        if (newlyLearned.length > 0) SFX.learn();
+
+        const topHabits = analyzeTopHabits();
+        // 直近の戦い方へ順応できるよう古い統計を減衰
+        decayMemory(0.76);
+
+        brain.matchCount++;
+        saveBrain();
+        updateHeaderAndPanels();
+        showRoundOverModal(playerWon, newlyLearned, topHabits);
+      }
+
+      function analyzeTopHabits() {
+        const habits = [];
+
+        const farProj = getContextBias("far", "projectile");
+        if (farProj > 0.30) {
+          habits.push({
+            label: `遠距離で飛び道具を多用 (${Math.round(farProj * 100)}%)`,
+            counter: "飛び越えジャンプ・突進接近"
+          });
+        }
+
+        const nearGuard = getContextBias("near", "guard");
+        if (nearGuard > 0.22) {
+          habits.push({
+            label: `近距離でガードが多め (${Math.round(nearGuard * 100)}%)`,
+            counter: "投げ（ガード崩し）重視"
+          });
+        }
+
+        const nearAtk = getContextBias("near", "weak1") + getContextBias("near", "strong");
+        if (nearAtk > 0.42) {
+          habits.push({
+            label: `近距離で攻撃を連打しがち (${Math.round(nearAtk * 100)}%)`,
+            counter: "ガード待ち→確定反撃"
+          });
+        }
+
+        const airAtk = getContextBias("air", "attack") + getContextBias("air", "meteor");
+        if (airAtk > 0.34) {
+          habits.push({
+            label: `空中飛び込み／メテオ多め (${Math.round(airAtk * 100)}%)`,
+            counter: "対空アッパー迎撃"
+          });
+        }
+
+        const ledgeAtk = getContextBias("ledge", "attack");
+        const ledgeRoll = getContextBias("ledge", "roll");
+        if (ledgeAtk > 0.34) {
+          habits.push({ label: `崖上がりが攻撃偏重 (${Math.round(ledgeAtk * 100)}%)`, counter: "崖際ガード待ち反撃" });
+        } else if (ledgeRoll > 0.34) {
+          habits.push({ label: `崖上がりが回避偏重 (${Math.round(ledgeRoll * 100)}%)`, counter: "回避先へスマッシュ置き" });
+        }
+
+        let bestPair = null;
+        let bestProb = 0;
+        for (const [prev, row] of Object.entries(brain.transitions)) {
+          const total = Object.values(row).reduce((a, b) => a + b, 0);
+          if (total < 2.5) continue;
+          for (const [next, cnt] of Object.entries(row)) {
+            const p = cnt / total;
+            if (p > bestProb && p >= 0.4) {
+              bestProb = p;
+              bestPair = { prev, next, p };
+            }
+          }
+        }
+        if (bestPair) {
+          habits.push({
+            label: `連係癖: ${labelAction(bestPair.prev)} → ${labelAction(bestPair.next)} (${Math.round(bestPair.p * 100)}%)`,
+            counter: "1手目で次を先読み"
+          });
+        }
+
+        return habits.slice(0, 4);
+      }
+
+      function labelAction(key) {
+        const map = {
+          weak1: "弱攻撃", strong: "強スマッシュ", meteor: "メテオ",
+          projectile: "飛び道具", antiAir: "対空技", rush: "突進技",
+          grab: "投げ", guard: "ガード", dodge: "回避",
+          jump: "ジャンプ", jump2: "2段ジャンプ"
+        };
+        return map[key] || key;
+      }
+
+      // ===== オーバーレイUI =====
+      const overlayEl = document.getElementById("overlay");
+      const modalEl = document.getElementById("modalContent");
+
+      function showIntroModal() {
+        matchState = "intro";
+        const isFirst = brain.matchCount === 1;
+        modalEl.innerHTML = `
+          <h2>
+            <span>${isFirst ? "ADAPTIVE DUEL へようこそ" : `MATCH ${brain.matchCount} 準備完了`}</span>
+            <span style="font-size:0.88rem;color:var(--p2);">CPU Lv.${getCpuLevel()}</span>
+          </h2>
+          <p>
+            ${
+              isFirst
+                ? "1P（シアン）は最初から多彩な技・崖攻防・メテオが使えます。<br>2P（CPU）は最初<strong>超弱く、弱パンチと1段ジャンプしかできません</strong>が、戦うたびに技をコピー（同じ技を連発すると試合中にも即覚醒！）し、あなたの癖を見抜いて5戦前後で手強いライバルへ進化します。"
+                : `連戦データを引き継いでいます（習得スキル <strong>${brain.unlocked.length} / ${CPU_SKILLS.length}</strong>）。直近のあなたの戦い方に合わせて対策を更新済みです。`
+            }
+          </p>
+          <div class="report-grid">
+            <div class="report-box">
+              <h3>ルール＆設定</h3>
+              <ul class="report-list">
+                <li>ステージ: <strong>${getCurrentStage().name}</strong> / <strong>${settings.stocks}ストック制</strong></li>
+                <li>崖掴まり中の攻防 ＆ 空中 <kbd>S</kbd>+<kbd>K</kbd> で<strong>メテオ</strong></li>
+                <li>ダメージ（%）が溜まるほど吹っ飛び増大！</li>
+              </ul>
+            </div>
+            <div class="report-box">
+              <h3>現在のCPUスペック</h3>
+              <ul class="report-list">
+                <li>反応速度: <strong>${Math.round(getCpuCapabilities().thinkInterval * 1000)}ms</strong></li>
+                <li>習得技: <strong>${brain.unlocked.map(id => CPU_SKILLS.find(s => s.id === id)?.name).join("・")}</strong></li>
+                <li>蓄積サンプル: <strong>${brain.totalSamples} 件</strong></li>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="modalStartBtn" class="primary">⚔️ バトル開始！（Enter / Space）</button>
+          </div>
+        `;
+        overlayEl.classList.remove("hidden");
+        document.getElementById("modalStartBtn").onclick = startNewMatch;
+      }
+
+      function showRoundOverModal(playerWon, newlyLearned, topHabits) {
+        const learnedHtml =
+          newlyLearned.length > 0
+            ? newlyLearned.map(s => `<span class="new-skill-badge">★ NEW: ${s.name}</span>`).join("")
+            : `<span style="color:var(--muted);font-size:0.82rem;">試合後アンロックなし（試合中覚醒または精度向上済み）</span>`;
+
+        const habitsHtml =
+          topHabits.length > 0
+            ? topHabits.map(h => `<li><strong>${h.label}</strong><br><span style="color:#fda4af;">→ 対策: ${h.counter}</span></li>`).join("")
+            : `<li>明確な癖はまだ収集中です。次の戦いでさらに分析が進みます。</li>`;
+
+        modalEl.innerHTML = `
+          <h2>
+            <span style="color:${playerWon ? "var(--p1)" : "var(--p2)"};">
+              ${playerWon ? "🎉 YOU WIN!（1Pの勝利）" : "💀 CPU WIN!（学習AIの勝利）"}
+            </span>
+            <span style="font-size:0.86rem;color:var(--accent);">次戦: CPU Lv.${getCpuLevel()}</span>
+          </h2>
+          <p>CPUが直近の戦闘データを解析し、古い癖を忘却しつつ最新の動きに適応しました。</p>
+          <div class="report-grid">
+            <div class="report-box">
+              <h3>🧠 新たに覚えた技</h3>
+              <div style="margin-top:6px;">${learnedHtml}</div>
+              <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">
+                次戦の反応間隔: <strong>${Math.round(getCpuCapabilities().thinkInterval * 1000)}ms</strong>
+              </p>
+            </div>
+            <div class="report-box">
+              <h3>📊 あなたの行動パターン分析</h3>
+              <ul class="report-list">${habitsHtml}</ul>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="modalResetBtn" class="danger">🧠 記憶をリセットしてLv.1へ</button>
+            <button id="modalNextBtn" class="primary">▶ 次の対戦へ（Match ${brain.matchCount}）</button>
+          </div>
+        `;
+        overlayEl.classList.remove("hidden");
+        document.getElementById("modalNextBtn").onclick = startNewMatch;
+        document.getElementById("modalResetBtn").onclick = resetCpuMemory;
+      }
+
+      function startNewMatch() {
+        ensureAudio();
+        p1 = createFighter(false);
+        p2 = createFighter(true);
+        projectiles = [];
+        particles = [];
+        floatingTexts = [];
+        koBeams = [];
+        hitstopTimer = 0;
+        screenShake = 0;
+        fatalFlashTimer = 0;
+        timeScale = 1;
+        slowMoTimer = 0;
+        matchTimer = 0;
+        sessionActionCounts = {};
+        lastPlayerAction = null;
+        keysJustPressed.clear();
+        cpuRuntime.predictedNext = null;
+        cpuRuntime.wantGuard = false;
+        cpuRuntime.wantAction = null;
+        matchState = "playing";
+        overlayEl.classList.add("hidden");
+        updateHeaderAndPanels();
+
+        if (brain.matchCount === 1) {
+          pushCpuLog("起動しました。まだ弱パンチしか分かりません…");
+          setCpuBubble("よろしく…！", 1.8);
+        } else {
+          pushCpuLog(`学習データロード完了。スキル ${brain.unlocked.length}/${CPU_SKILLS.length} で戦闘開始！`);
+          setCpuBubble(`Lv.${getCpuLevel()}、解析開始`, 1.8);
+        }
+      }
+
+      function resetCpuMemory() {
+        brain = createInitialBrain();
+        saveBrain();
+        cpuLogs.length = 0;
+        pushCpuLog("記憶を初期化しました。Lv.1からやり直します。");
+        updateHeaderAndPanels();
+        showIntroModal();
+      }
+
+      // ===== ダッシュボード更新 =====
+      function updateHeaderAndPanels() {
+        document.getElementById("matchBadge").textContent =
+          `MATCH ${brain.matchCount} / CPU Lv.${getCpuLevel()} (${brain.losses}勝 ${brain.wins}敗)`;
+        renderSkillsGrid();
+        renderHabits();
+        renderCpuLog();
+      }
+
+      function renderSkillsGrid() {
+        const grid = document.getElementById("skillsGrid");
+        const unlockedSet = new Set(brain.unlocked);
+        document.getElementById("skillCountLabel").textContent = `${unlockedSet.size} / ${CPU_SKILLS.length} 習得`;
+
+        grid.innerHTML = CPU_SKILLS.map(skill => {
+          const isUnlocked = unlockedSet.has(skill.id);
+          const obs = brain.observation[skill.id] || 0;
+          const pct = isUnlocked ? 100 : Math.min(100, Math.round((obs / Math.max(1, skill.threshold)) * 100));
+          return `
+            <div class="skill-chip ${isUnlocked ? "unlocked" : "locked"}">
+              <div>${isUnlocked ? "✓" : "🔒"} ${skill.name}</div>
+              <div class="skill-progress"><div class="skill-progress-fill" style="width:${pct}%"></div></div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderHabits() {
+        const el = document.getElementById("habitsList");
+        const adaptPct = Math.min(100, Math.round(getCpuCapabilities().adaptStrength * 100));
+        document.getElementById("adaptRateLabel").textContent = `適応度 ${adaptPct}%`;
+
+        const habits = analyzeTopHabits();
+        if (habits.length === 0) {
+          el.innerHTML = `<div style="font-size:0.76rem;color:var(--muted);">データ収集中（${brain.totalSamples}件）。戦うほど癖を特定します。</div>`;
+          return;
+        }
+        el.innerHTML = habits.map(h => `
+          <div class="habit-item">
+            <span class="habit-tag">${h.label}</span>
+            <span class="habit-counter">${h.counter}</span>
+          </div>
+        `).join("");
+      }
+
+      function renderCpuLog() {
+        document.getElementById("cpuLog").innerHTML = cpuLogs.map(line => `<div>${line}</div>`).join("");
+      }
+
+      // ===== ヘッダーコントロール =====
+      const stageSelectEl = document.getElementById("stageSelect");
+      const stockSelectEl = document.getElementById("stockSelect");
+      stageSelectEl.value = settings.stageId;
+      stockSelectEl.value = String(settings.stocks);
+
+      stageSelectEl.onchange = () => {
+        settings.stageId = stageSelectEl.value;
+        saveSettings();
+        if (matchState === "playing") startNewMatch();
+        else showIntroModal();
+      };
+
+      stockSelectEl.onchange = () => {
+        settings.stocks = Number(stockSelectEl.value);
+        saveSettings();
+        if (matchState === "playing") startNewMatch();
+        else showIntroModal();
+      };
+
+      document.getElementById("btnSound").onclick = (e) => {
+        soundEnabled = !soundEnabled;
+        e.target.textContent = soundEnabled ? "🔊 SE: ON" : "🔇 SE: OFF";
+      };
+      document.getElementById("btnRestartMatch").onclick = startNewMatch;
+      document.getElementById("btnResetCpu").onclick = resetCpuMemory;
+
+      window.addEventListener("keydown", (e) => {
+        if (matchState !== "playing" && (e.code === "Enter" || e.code === "Space")) {
+          e.preventDefault();
+          startNewMatch();
+        }
+      });
+
+      // ===== メイン更新 =====
+      function update(rawDt) {
+        if (bannerTimer > 0) {
+          bannerTimer -= rawDt;
+          if (bannerTimer <= 0) awakeBannerEl.classList.remove("show");
+        }
+
+        if (matchState !== "playing") return;
+
+        if (fatalFlashTimer > 0) fatalFlashTimer -= rawDt;
+        if (slowMoTimer > 0) {
+          slowMoTimer -= rawDt;
+          if (slowMoTimer <= 0) timeScale = 1;
+        }
+
+        if (hitstopTimer > 0) {
+          hitstopTimer -= rawDt;
+          screenShake = Math.max(0, screenShake - 35 * rawDt);
+          return;
+        }
+
+        const dt = rawDt * timeScale;
+        matchTimer += dt;
+        screenShake = Math.max(0, screenShake - 42 * rawDt);
+
+        updateCpuAI(dt);
+        updateFighter(p1, p2, dt);
+        updateFighter(p2, p1, dt);
+
+        // 飛び道具更新
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+          const pr = projectiles[i];
+          pr.x += pr.vx * dt;
+          pr.y += pr.vy * dt;
+          pr.life -= dt;
+
+          const target = pr.owner === p1 ? p2 : p1;
+          if (target.respawnTimer <= 0 && target.invulnTimer <= 0) {
+            if (Math.abs(pr.x - target.x) < target.w / 2 + pr.r && Math.abs(pr.y - target.y) < target.h / 2 + pr.r) {
+              applyHit(pr.owner, target, pr.def, { hitTargets: new Set() }, Math.sign(pr.vx) || 1);
+              projectiles.splice(i, 1);
+              continue;
+            }
+          }
+          if (pr.life <= 0 || pr.x < -100 || pr.x > W + 100) projectiles.splice(i, 1);
+        }
+
+        // 撃墜ビーム更新
+        for (let i = koBeams.length - 1; i >= 0; i--) {
+          koBeams[i].life -= rawDt;
+          if (koBeams[i].life <= 0) koBeams.splice(i, 1);
+        }
+
+        // パーティクル更新
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.vx *= 0.94;
+          pt.vy *= 0.94;
+          pt.life -= dt;
+          if (pt.life <= 0) particles.splice(i, 1);
+        }
+
+        // フローティングテキスト更新
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.y += ft.vy * dt;
+          ft.life -= dt;
+          if (ft.life <= 0) floatingTexts.splice(i, 1);
+        }
+
+        keysJustPressed.clear();
+      }
+
+      // ===== 描画 =====
+      function draw() {
+        ctx.save();
+        if (screenShake > 0.2) {
+          ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+        }
+
+        // 背景
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, "#0b1224");
+        grad.addColorStop(1, "#070a12");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // 致命ヒット時の赤い閃光演出
+        if (fatalFlashTimer > 0) {
+          ctx.fillStyle = `rgba(220, 38, 38, ${Math.min(0.45, fatalFlashTimer * 1.9)})`;
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        // 背景グリッド
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.05)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= W; x += 50) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, H);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += 50) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(W, y);
+          ctx.stroke();
+        }
+
+        // 場外ライン警告枠
+        ctx.strokeStyle = "rgba(251, 113, 133, 0.22)";
+        ctx.setLineDash([6, 6]);
+        ctx.strokeRect(10, 10, W - 20, H - 20);
+        ctx.setLineDash([]);
+
+        // 足場描画
+        for (const plat of getStagePlatforms()) {
+          if (plat.passThrough) {
+            ctx.fillStyle = "rgba(148, 163, 184, 0.25)";
+            ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillRect(plat.x, plat.y, plat.w, 3);
+          } else {
+            const stageGrad = ctx.createLinearGradient(0, plat.y, 0, plat.y + plat.h + 45);
+            stageGrad.addColorStop(0, "#1e293b");
+            stageGrad.addColorStop(1, "#0f172a");
+            ctx.fillStyle = stageGrad;
+            ctx.beginPath();
+            ctx.roundRect(plat.x, plat.y, plat.w, plat.h + 18, 6);
+            ctx.fill();
+
+            ctx.fillStyle = "#60a5fa";
+            ctx.fillRect(plat.x, plat.y, plat.w, 4);
+            ctx.fillStyle = "#facc15";
+            ctx.fillRect(plat.x, plat.y, 9, 9);
+            ctx.fillRect(plat.x + plat.w - 9, plat.y, 9, 9);
+          }
+        }
+
+        // 撃墜ビーム描画
+        for (const bm of koBeams) {
+          const alpha = bm.life / bm.maxLife;
+          ctx.save();
+          ctx.translate(bm.x, bm.y);
+          ctx.rotate(bm.angle);
+          const beamGrad = ctx.createLinearGradient(0, 0, 540, 0);
+          beamGrad.addColorStop(0, "#ffffff");
+          beamGrad.addColorStop(0.25, bm.color);
+          beamGrad.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.globalAlpha = alpha * 0.85;
+          ctx.fillStyle = beamGrad;
+          ctx.beginPath();
+          ctx.moveTo(0, -45 * alpha);
+          ctx.lineTo(540, -6);
+          ctx.lineTo(540, 6);
+          ctx.lineTo(0, 45 * alpha);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 飛び道具描画
+        for (const pr of projectiles) {
+          ctx.save();
+          ctx.shadowColor = pr.color;
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(pr.x, pr.y, pr.r * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = pr.color;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        drawFighter(p1);
+        drawFighter(p2);
+
+        for (const pt of particles) {
+          ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (const ft of floatingTexts) {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, ft.life * 1.6);
+          ctx.fillStyle = ft.color;
+          ctx.font = `800 ${Math.round(15 * ft.scale)}px "Segoe UI", sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+
+        drawHud();
+        ctx.restore();
+      }
+
+      function drawFighter(f) {
+        if (f.respawnTimer > 0) return;
+        if (f.invulnTimer > 0 && Math.floor(f.invulnTimer * 18) % 2 === 0 && f.dodgeTimer <= 0) {
+          ctx.globalAlpha = 0.48;
+        }
+
+        const x = f.x;
+        const y = f.y;
+
+        // 足元の影
+        for (const plat of getStagePlatforms()) {
+          if (x > plat.x && x < plat.x + plat.w && y <= plat.y) {
+            const dist = plat.y - (y + f.h / 2);
+            if (dist >= 0 && dist < 220) {
+              ctx.fillStyle = `rgba(0,0,0,${0.36 * (1 - dist / 220)})`;
+              ctx.beginPath();
+              ctx.ellipse(x, plat.y + 1, 18 * (1 - dist / 350), 4, 0, 0, Math.PI * 2);
+              ctx.fill();
+              break;
+            }
+          }
+        }
+
+        ctx.save();
+        ctx.translate(x, y);
+        if (f.hitstunTimer > 0) ctx.rotate(f.tumbleAngle);
+
+        // CPUオーラ
+        if (f.isCpu && getCpuLevel() >= 3) {
+          ctx.strokeStyle = "rgba(251, 113, 133, 0.35)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, 31 + Math.sin(matchTimer * 6) * 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        const bodyColor = f.flashTimer > 0 ? "#ffffff" : f.shieldBrokenTimer > 0 ? "#94a3b8" : f.color;
+        ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2;
+
+        // 頭
+        ctx.beginPath();
+        ctx.arc(0, -16, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // バイザー
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(f.facing > 0 ? 1 : -10, -20, 9, 5);
+        ctx.fillStyle = f.isCpu ? "#facc15" : "#e0f2fe";
+        ctx.fillRect(f.facing > 0 ? 5 : -8, -19, 3, 3);
+
+        // 胴体
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.roundRect(-11, -4, 22, 22, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        // 腕（モーション反映）
+        let armX = f.facing * 12;
+        let armY = 2;
+        if (f.attack) {
+          const atk = f.attack;
+          const def = MOVE_DEFS[atk.type];
+          const isAct = atk.timer >= def.startup && atk.timer <= def.startup + def.active;
+          if (atk.type === "meteor") {
+            armX = f.facing * 10;
+            armY = isAct ? 22 : -14;
+          } else if (atk.type === "antiAir") {
+            armX = f.facing * 12;
+            armY = -20;
+          } else if (isAct) {
+            armX = f.facing * 24;
+            armY = 0;
+          } else if (atk.timer < def.startup) {
+            armX = -f.facing * 10;
+            armY = 0;
+          }
+        }
+        ctx.fillStyle = f.accent;
+        ctx.beginPath();
+        ctx.arc(armX, armY, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 足
+        const legSwing = f.grounded && Math.abs(f.vx) > 20 ? Math.sin(matchTimer * 18) * 6 : 0;
+        ctx.fillStyle = f.accent;
+        ctx.fillRect(-9 + legSwing, 18, 7, 9);
+        ctx.fillRect(2 - legSwing, 18, 7, 9);
+
+        // 攻撃エフェクト
+        if (f.attack) {
+          const atk = f.attack;
+          const def = MOVE_DEFS[atk.type];
+          const isActive = atk.timer >= def.startup && atk.timer <= def.startup + def.active;
+          const isStartup = atk.timer < def.startup;
+
+          if (isStartup && (atk.type === "strong" || atk.type === "meteor")) {
+            ctx.strokeStyle = atk.type === "meteor" ? "#f97316" : "#facc15";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(f.facing * -6, 0, 16 * (1 - atk.timer / def.startup), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          if (isActive && atk.type !== "projectile") {
+            ctx.save();
+            ctx.globalAlpha = 0.88;
+            ctx.fillStyle = def.isGrab ? "#facc15" : def.isMeteor ? "#f97316" : f.accent;
+            ctx.shadowColor = def.isMeteor ? "#f97316" : f.color;
+            ctx.shadowBlur = 12;
+
+            if (atk.type === "weak1" || atk.type === "weak2" || atk.type === "weak3" || atk.type === "ledgeAttack") {
+              ctx.beginPath();
+              ctx.arc(f.facing * def.offsetX, def.offsetY, def.rangeX * 0.45, -0.9, 0.9);
+              ctx.lineWidth = atk.type === "weak3" ? 9 : 6;
+              ctx.strokeStyle = "#ffffff";
+              ctx.stroke();
+            } else if (atk.type === "strong") {
+              ctx.beginPath();
+              ctx.ellipse(f.facing * def.offsetX, def.offsetY, def.rangeX * 0.56, def.rangeY * 0.46, 0, 0, Math.PI * 2);
+              ctx.fill();
+            } else if (atk.type === "meteor") {
+              ctx.beginPath();
+              ctx.arc(f.facing * 14, 18, 30, 0.15 * Math.PI, 0.85 * Math.PI);
+              ctx.lineWidth = 10;
+              ctx.strokeStyle = "#fb923c";
+              ctx.stroke();
+            } else if (atk.type === "antiAir") {
+              ctx.beginPath();
+              ctx.arc(f.facing * 14, -18, 30, Math.PI * 1.1, Math.PI * 1.9);
+              ctx.lineWidth = 8;
+              ctx.strokeStyle = "#facc15";
+              ctx.stroke();
+            } else if (atk.type === "rush") {
+              ctx.beginPath();
+              ctx.moveTo(f.facing * 38, 0);
+              ctx.lineTo(f.facing * -26, -18);
+              ctx.lineTo(f.facing * -26, 18);
+              ctx.closePath();
+              ctx.fill();
+            } else if (atk.type === "grab") {
+              ctx.strokeStyle = "#facc15";
+              ctx.lineWidth = 4;
+              ctx.strokeRect(f.facing * def.offsetX - 18, -18, 36, 36);
+            }
+            ctx.restore();
+          }
+        }
+
+        // ガードシールド
+        if (f.shielding) {
+          const radius = 14 + (f.shieldHp / 100) * 22;
+          ctx.fillStyle = f.isCpu ? "rgba(251, 113, 133, 0.25)" : "rgba(56, 189, 248, 0.25)";
+          ctx.strokeStyle = f.color;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // ラベル＆崖表示＆思考吹き出し
+        ctx.save();
+        ctx.font = "700 11px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = f.ledgeState ? "#facc15" : f.color;
+        ctx.fillText(f.ledgeState ? "LEDGE" : (f.isCpu ? `CPU Lv.${getCpuLevel()}` : "1P"), x, y - 38);
+
+        if (f.isCpu && f.bubbleTimer > 0 && f.bubbleText) {
+          ctx.font = "700 12px Segoe UI, sans-serif";
+          const tw = ctx.measureText(f.bubbleText).width + 16;
+          ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+          ctx.strokeStyle = "#fb7185";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(x - tw / 2, y - 72, tw, 22, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#ffe4e6";
+          ctx.fillText(f.bubbleText, x, y - 57);
+        }
+        ctx.restore();
+      }
+
+      function getDamageColor(dmg) {
+        if (dmg < 40) return "#f8fafc";
+        if (dmg < 80) return "#fde047";
+        if (dmg < 120) return "#fb923c";
+        return "#ef4444";
+      }
+
+      function drawHud() {
+        drawFighterHud(p1, 24, 18);
+        drawFighterHud(p2, W - 264, 18);
+      }
+
+      function drawFighterHud(f, x, y) {
+        ctx.save();
+        ctx.fillStyle = "rgba(11, 17, 32, 0.80)";
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, 240, 62, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = f.color;
+        ctx.font = "700 13px Segoe UI, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(f.isCpu ? `2P: CPU Lv.${getCpuLevel()}` : "1P: PLAYER", x + 14, y + 22);
+
+        for (let i = 0; i < settings.stocks; i++) {
+          ctx.beginPath();
+          ctx.arc(x + 18 + i * 18, y + 43, 6, 0, Math.PI * 2);
+          if (i < f.stocks) {
+            ctx.fillStyle = f.color;
+            ctx.fill();
+          } else {
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+
+        const shake = f.flashTimer > 0 ? (Math.random() - 0.5) * 6 : 0;
+        ctx.fillStyle = getDamageColor(f.damage);
+        ctx.font = "900 32px Segoe UI, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(`${Math.floor(f.damage)}%`, x + 226 + shake, y + 48 + shake);
+        ctx.restore();
+      }
+
+      // ===== ループ =====
+      let lastTime = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.035, (now - lastTime) / 1000);
+        lastTime = now;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      updateHeaderAndPanels();
+      showIntroModal();
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
